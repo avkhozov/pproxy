@@ -1,4 +1,4 @@
 pproxy
 ======
 
-TCP/UDP proxy on Perl
+TCP proxy on Perl
