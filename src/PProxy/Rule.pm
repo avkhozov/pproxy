@@ -1,6 +1,7 @@
 package PProxy::Rule;
 
 use strict;
+use warnings;
 
 sub new {
     my ($type, $rule_string) = @_;
@@ -26,21 +27,26 @@ sub _parse {
                     /x;
     $self->{$_} = $+{$_} for (qw/action proto src src_port direction dst dst_port/);
     my $opt_re = qr/
-                    \s*
                     (?<key>\w+)
-                    \s*:s*
+                    \s*:\s*
                     (?:
-                        "(?<value>[^"]*?)"
+                        "(?<value>(\\\\|\\;|\\"|[^";\\])*?)"
                         |
-                        '(?<value>[^']*?)'
-                        |
-                        (?<value>[^;]*)
+                        (?<value>[^;]*?)
                     )
-                    \s*;
+                    ;
                 /x;
     my $opt = $+{opt};
     while ($opt =~ /$opt_re/g) {
-        push @{$self->{'opt_' . $+{key}}}, $+{value};
+        my ($key, $value) = ($+{key}, $+{value});
+        $value =~ s/(\\(.))/$2/g;
+        if ($key eq 'content') {
+            $value =~   s/
+                        \|([0-9a-fA-F\s]+)\|
+                        /my $data = join '', split ' ', $1; pack "H*", $data
+                        /gex;
+        }
+        push @{$self->{"opt_$key"}}, $value;
     }
 }
 

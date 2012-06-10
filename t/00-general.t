@@ -17,7 +17,7 @@ is($o->{opt_msg}->[0], 'WEB-PHP directory.php arbitrary command attempt', 'opt_m
 is($o->{opt_flow}->[0], 'to_server,established', 'opt_flow is ok');
 is($o->{opt_uricontent}->[0], '/directory.php', 'opt_uricontent is ok');
 is($o->{opt_content}->[0], 'dir=', 'opt_content is ok');
-is($o->{opt_content}->[1], '|3B|', 'opt_content is ok');
+is($o->{opt_content}->[1], ';', 'opt_content is ok');
 is($o->{opt_reference}->[0], 'bugtraq,4278', 'opt_reference is ok');
 is($o->{opt_reference}->[1], 'cve,2002-0434', 'opt_reference is ok');
 is($o->{opt_classtype}->[0], 'misc-attack', 'opt_classtype is ok');
