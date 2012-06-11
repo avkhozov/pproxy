@@ -39,7 +39,7 @@ sub _parse {
                 /x;
     my $opt = $+{opt};
     while ($opt =~ /$opt_re/g) {
-        my ($key, $value, $negative) = ($+{key}, $+{value}, $+{negative});
+        my ($key, $value, $negative) = @+{'key', 'value', 'negative'};
         $value =~ s/(\\(.))/$2/g;
         if ($key eq 'content') {
             $value =~   s/

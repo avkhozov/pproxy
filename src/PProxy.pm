@@ -10,7 +10,11 @@ sub match {
     my @templates = @{$rule->{opt_content}};
     for (@templates) {
         my $template = $_->{template};
-        return $rule->{action} if $content =~ /$template/;
+        if ($_->{negative}) {
+            return $rule->{action} unless $content !~ /$template/;
+        } else {
+            return $rule->{action} if $content =~ /$template/;
+        }
     }
     return 0;
 }

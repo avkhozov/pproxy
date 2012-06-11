@@ -9,6 +9,5 @@ is($o->{opt_content}->[0]->{template}, 'test', 'opt_content is ok');
 is($o->{opt_content}->[1]->{template}, 'a\\b;c"d', 'opt_content is ok');
 is($o->{opt_content}->[2]->{template}, pack('H*', '5c0050004900500045005c000000'), 'opt_content is ok');
 
-diag $o->{opt_content}->[3]->{negative};
 ok($o->{opt_content}->[3]->{negative}, 'opt_content negative is ok');
 is($o->{opt_content}->[3]->{template}, 'qw;er', 'opt_content is ok');
