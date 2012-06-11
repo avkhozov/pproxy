@@ -29,6 +29,7 @@ sub _parse {
     my $opt_re = qr/
                     (?<key>\w+)
                     \s*:\s*
+                    (?<negative>([\!]))?\s*
                     (?:
                         "(?<value>(\\\\|\\;|\\"|[^";\\])*?)"
                         |
@@ -38,15 +39,17 @@ sub _parse {
                 /x;
     my $opt = $+{opt};
     while ($opt =~ /$opt_re/g) {
-        my ($key, $value) = ($+{key}, $+{value});
+        my ($key, $value, $negative) = ($+{key}, $+{value}, $+{negative});
         $value =~ s/(\\(.))/$2/g;
         if ($key eq 'content') {
             $value =~   s/
                         \|([0-9a-fA-F\s]+)\|
                         /my $data = join '', split ' ', $1; pack "H*", $data
                         /gex;
+            push @{$self->{"opt_$key"}}, {negative => $negative, template => $value};
+        } else {
+            push @{$self->{"opt_$key"}}, $value;
         }
-        push @{$self->{"opt_$key"}}, $value;
     }
 }
 
