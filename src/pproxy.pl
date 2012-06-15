@@ -9,6 +9,7 @@ use PProxy::IDS;
 my $conf = do 'pproxy.conf' or die 'Invalid configuration file';
 my $log = Mojo::Log->new(path => $conf->{log});
 my $pcap_file = $conf->{pcap} // 'data.pcap';
+my $rules_dir = $conf->{rules} // 'rules';
 
 my $lister = $conf->{listen};
 my $proxy = $conf->{proxy};
@@ -19,7 +20,7 @@ open my $fh, '>', $pcap_file or die "Error on write to $pcap_file: $!";
 my $old = select $fh; $|=1; select $old;
 my $pcap_writer = Net::PcapWriter->new($fh);
 
-my $ids = PProxy::IDS->new('rules');
+my $ids = PProxy::IDS->new($rules_dir);
 
 for my $port (keys %$proxy) {
     $log->info("Start listen on $port");
@@ -50,9 +51,11 @@ for my $port (keys %$proxy) {
         $stream->on(read => sub {
             my ($stream, $chunk) = @_;
             $log->debug("Read data on $id: $chunk");
-            $log->debug("Action for this chunk is ".$ids->process_chunk($chunk));
+            my $ids_action = $ids->process_chunk($chunk);
+            $log->debug("Action for this chunk is $ids_action");
             $connections->{$id}->{pcap_connection}->write(0, $chunk);
             $connections->{$id}->{pcap_connection}->ack(1);
+            return if $ids_action eq 'drop';
             # Check for existsting connection
             if (my $orign = $connections->{$id}->{orign_id}) {
                 if (my $orign_stream = Mojo::IOLoop->stream($orign)) {
@@ -70,10 +73,12 @@ for my $port (keys %$proxy) {
                 $stream->on(read => sub {
                     my ($stream, $chunk) = @_;
                     $log->debug("Read data from orign $id: $chunk");
-                    $log->debug("Action for this chunk is ".$ids->process_chunk($chunk));
-                    Mojo::IOLoop->stream($id)->write($chunk);
+                    my $ids_action = $ids->process_chunk($chunk);
+                    $log->debug("Action for this chunk is $ids_action");
                     $connections->{$id}->{pcap_connection}->write(1, $chunk);
                     $connections->{$id}->{pcap_connection}->ack(0);
+                    return if $ids_action eq 'drop';
+                    Mojo::IOLoop->stream($id)->write($chunk);
                 });
                 $stream->on(timeout => sub {
                     $log->debug("timeout: orign $id");
