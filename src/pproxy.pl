@@ -4,8 +4,9 @@ use strict;
 use Mojo::IOLoop;
 use Mojo::Log;
 use Net::PcapWriter;
+use PProxy::IDS;
 
-my $conf = do 'pproxy.conf';
+my $conf = do 'pproxy.conf' or die 'Invalid configuration file';
 my $log = Mojo::Log->new(path => $conf->{log});
 my $pcap_file = $conf->{pcap} // 'data.pcap';
 
@@ -14,9 +15,11 @@ my $proxy = $conf->{proxy};
 
 my $connections = {};
 
-open my $fh, '>', $pcap_file or die "Error while write $pcap_file: $!";
+open my $fh, '>', $pcap_file or die "Error on write to $pcap_file: $!";
 my $old = select $fh; $|=1; select $old;
 my $pcap_writer = Net::PcapWriter->new($fh);
+
+my $ids = PProxy::IDS->new('rules');
 
 for my $port (keys %$proxy) {
     $log->info("Start listen on $port");
@@ -47,6 +50,7 @@ for my $port (keys %$proxy) {
         $stream->on(read => sub {
             my ($stream, $chunk) = @_;
             $log->debug("Read data on $id: $chunk");
+            $log->debug("Action for this chunk is ".$ids->process_chunk($chunk));
             $connections->{$id}->{pcap_connection}->write(0, $chunk);
             $connections->{$id}->{pcap_connection}->ack(1);
             # Check for existsting connection
@@ -66,6 +70,7 @@ for my $port (keys %$proxy) {
                 $stream->on(read => sub {
                     my ($stream, $chunk) = @_;
                     $log->debug("Read data from orign $id: $chunk");
+                    $log->debug("Action for this chunk is ".$ids->process_chunk($chunk));
                     Mojo::IOLoop->stream($id)->write($chunk);
                     $connections->{$id}->{pcap_connection}->write(1, $chunk);
                     $connections->{$id}->{pcap_connection}->ack(0);

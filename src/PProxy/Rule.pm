@@ -2,6 +2,7 @@ package PProxy::Rule;
 
 use strict;
 use warnings;
+use Data::Dumper;
 
 sub new {
     my ($type, $rule_string) = @_;
@@ -17,11 +18,11 @@ sub _parse {
                         ^\s*
                         (?<action>\w+)\s+
                         (?<proto>\w+)\s+
-                        (?<src>[\w\$]+)\s+
-                        (?<src_port>[\w\$]+)\s+
+                        (?<src>[\!\w_\.\$]+)\s+
+                        (?<src_port>[\!\w_\$\[\]\,\:]+)\s+
                         (?<direction>[<>-]{1,2})\s+
-                        (?<dst>[\w\$]+)\s+
-                        (?<dst_port>[\w\$]+)\s+
+                        (?<dst>[\!\w_\.\$]+)\s+
+                        (?<dst_port>[\!\w_\$\[\]\,\:]+)\s+
                         \((?<opt>.*)\)
                         \s*$
                     /x;
@@ -41,7 +42,7 @@ sub _parse {
     while ($opt =~ /$opt_re/g) {
         my ($key, $value, $negative) = @+{'key', 'value', 'negative'};
         $value =~ s/(\\(.))/$2/g;
-        if ($key eq 'content') {
+        if ($key eq 'content' || $key eq 'pcre') {
             $value =~   s/
                         \|([0-9a-fA-F\s]+)\|
                         /my $data = join '', split ' ', $1; pack "H*", $data
@@ -51,6 +52,40 @@ sub _parse {
             push @{$self->{"opt_$key"}}, $value;
         }
     }
+}
+
+sub match
+{
+    my ($self, $chunk) = @_;
+    if (ref $self->{opt_content} eq 'ARRAY') {
+        my @templates = @{$self->{opt_content}};
+        for (@templates) {
+            my $template = $_->{template};
+            if ($_->{negative}) {
+                return 0 if index($chunk, $template) >= 0;
+            } else {
+                return 0 if index($chunk, $template) == -1;
+            }
+        }
+    }
+    
+    if (ref $self->{opt_pcre} eq 'ARRAY') {
+        my @templates = @{$self->{opt_pcre}};
+        for (@templates) {
+            my $template = $_->{template};
+            if ($_->{negative}) {
+                return 0 if $chunk =~ /$template/;
+            } else {
+                return 0 if $chunk !~ /$template/;
+            }
+        }
+    }
+
+
+    local $, = ' ';
+    local $\ = $/;
+    Dumper $self;
+    return 1;
 }
 
 1;
