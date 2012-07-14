@@ -41,7 +41,7 @@ sub _parse {
     my $opt = $+{opt};
     while ($opt =~ /$opt_re/g) {
         my ($key, $value, $negative) = @+{'key', 'value', 'negative'};
-        $value =~ s/(\\(.))/$2/g;
+        $value =~ s/(\\(.))/$2/g if $key ne 'pcre';
         if ($key eq 'content' || $key eq 'pcre') {
             $value =~   s/
                         \|([0-9a-fA-F\s]+)\|
@@ -57,10 +57,12 @@ sub _parse {
 sub match
 {
     my ($self, $chunk) = @_;
+
+    $chunk = lc $chunk;
     if (ref $self->{opt_content} eq 'ARRAY') {
         my @templates = @{$self->{opt_content}};
         for (@templates) {
-            my $template = $_->{template};
+            my $template = lc $_->{template};
             if ($_->{negative}) {
                 return 0 if index($chunk, $template) >= 0;
             } else {
@@ -68,7 +70,7 @@ sub match
             }
         }
     }
-    
+
     if (ref $self->{opt_pcre} eq 'ARRAY') {
         my @templates = @{$self->{opt_pcre}};
         for (@templates) {
@@ -81,10 +83,6 @@ sub match
         }
     }
 
-
-    local $, = ' ';
-    local $\ = $/;
-    Dumper $self;
     return 1;
 }
 

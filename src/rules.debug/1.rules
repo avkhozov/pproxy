@@ -1,1 +1,5 @@
-drop tcp $HOME_NET any -> $EXTERNAL_NET any (msg:"Debug 1"; content:"GET";)
+alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:"Debug 2"; content:"id";)
+drop tcp $HOME_NET any -> $EXTERNAL_NET any (msg:"Debug 2"; content:"/bin/bash";)
+drop tcp $HOME_NET any -> $EXTERNAL_NET any (msg:"Debug 2"; content:"/bin/sh";)
+drop tcp $HOME_NET any -> $EXTERNAL_NET any (msg:"Debug 2"; content:"SELECT";)
+drop tcp $HOME_NET any -> $EXTERNAL_NET any (msg:"Debug 2"; content:"DROP";)

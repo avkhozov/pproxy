@@ -15,6 +15,7 @@ sub new {
 
 sub read_rules_dir {
     my ($self, $rules_dir) = @_;
+    my $old_rules_count = defined($self->{rules}) ? @{$self->{rules}} : 0;
     my @rules_files = <$rules_dir/*.rules>;
     $self->{rules} = [];
     for my $rules_file (@rules_files) {
@@ -26,7 +27,7 @@ sub read_rules_dir {
         }
         close Rules;
     }
-    print @{$self->{rules}}." rules added\n";
+    print @{$self->{rules}}." rules\n" if $old_rules_count != @{$self->{rules}};
 }
 
 sub process_chunk {
