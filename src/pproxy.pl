@@ -7,7 +7,7 @@ use Net::PcapWriter;
 use PProxy::IDS;
 
 my $conf = do 'pproxy.conf' or die 'Invalid configuration file';
-my $log = Mojo::Log->new(path => $conf->{log});
+my $log = Mojo::Log->new(path => $conf->{log}, level => 'info');
 my $dump_pcap = $conf->{dump_pcap} // 0;
 my $pcap_file = $conf->{pcap} // 'data.pcap';
 my $rules_dir = $conf->{rules} // 'rules';
@@ -64,8 +64,13 @@ for my $port (keys %$proxy) {
             # Check for existsting connection
             if (my $orign = $connections->{$id}->{orign_id}) {
                 if (my $orign_stream = Mojo::IOLoop->stream($orign)) {
+                    if (length $connections->{$id}->{temp_buffer}) {
+                        $orign_stream->write($connections->{$id}->{temp_buffer});
+                        $connections->{$id}->{temp_buffer} = '';
+                    }
                     return $orign_stream->write($chunk);
                 }
+                $connections->{$id}->{temp_buffer} .= $chunk;
                 return;
             }
             # Open new connection
