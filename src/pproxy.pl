@@ -62,9 +62,9 @@ for my $port (keys %$proxy) {
                                               timeout => 5*60 } => sub {
                 my ($loop, $err, $stream) = @_;
 
-                if($err) {
-                    Mojo::IOLoop->stream($id)->close;
-                    return;
+                if ($err) {
+                    $log->warn("Error in $id: $err");
+                    return Mojo::IOLoop->stream($id)->close;
                 }
 
                 $stream->on(read => sub {
