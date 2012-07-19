@@ -6,7 +6,7 @@ use Mojo::Log;
 use PProxy::IDS;
 
 my $conf = do 'pproxy.conf' or die 'Invalid configuration file';
-my $log = Mojo::Log->new(path => $conf->{log}, level => 'debug');
+my $log = Mojo::Log->new(path => $conf->{log}, level => 'info');
 my $rules_dir = $conf->{rules} // 'rules';
 my $proxy = $conf->{proxy};
 my $connections = {};
@@ -21,21 +21,14 @@ for my $port (keys %$proxy) {
         my ($loop, $stream, $id) = @_;
         $stream->on(close => sub {
             $log->debug("Closed $id");
-            if (my $orign = $connections->{$id}->{orign_id}) {
-                if (my $orign_stream = Mojo::IOLoop->stream($orign)) {
-                    $orign_stream->close;
-                }
-            }
+            Mojo::IOLoop->remove($connections->{$id}->{orign_id}) if $connections->{$id}->{orign_id};
             delete $connections->{$id};
         });
         $stream->on(error => sub {
             my ($stream, $error) = @_;
             $log->debug("Error in $id: $error");
-            if (my $orign = $connections->{$id}->{orign_id}) {
-                if (my $orign_stream = Mojo::IOLoop->stream($orign)) {
-                    $orign_stream->close;
-                }
-            }
+            Mojo::IOLoop->remove($connections->{$id}->{orign_id}) if $connections->{$id}->{orign_id};
+            delete $connections->{$id};
         });
         $stream->on(read => sub {
             my ($stream, $chunk) = @_;
@@ -58,8 +51,8 @@ for my $port (keys %$proxy) {
             # Open new connection
             $log->debug("Connecting to $remote_addr:$remote_port");
             my $orign = Mojo::IOLoop->client({address => $remote_addr,
-                                                 port => $remote_port,
-                                              timeout => 5*60 } => sub {
+                                                port => $remote_port,
+                                                timeout => 5*60 } => sub {
                 my ($loop, $err, $stream) = @_;
 
                 if ($err) {
@@ -77,16 +70,19 @@ for my $port (keys %$proxy) {
                 });
                 $stream->on(timeout => sub {
                     $log->debug("timeout: orign $id");
-                    Mojo::IOLoop->stream($id)->close;
+                    Mojo::IOLoop->remove($id);
+                    delete $connections->{$id};
                 });
                 $stream->on(error => sub {
                    my ($stream, $error) = @_;
                    $log->debug("Error in orign $id while process $remote_addr:$remote_port: $error");
-                   Mojo::IOLoop->stream($id)->close;
+                   Mojo::IOLoop->remove($id);
+                   delete $connections->{$id};
                 });
                 $stream->on(close => sub {
                     $log->debug("Closed orign $id");
-                    Mojo::IOLoop->stream($id)->close;
+                    Mojo::IOLoop->remove($id);
+                    delete $connections->{$id};
                 });
                 $log->debug("Connected to $remote_addr:$remote_port");
                 $stream->write($chunk);
