@@ -76,10 +76,15 @@ for my $port (keys %$proxy) {
             # Open new connection
             $log->debug("Connecting to $remote_addr:$remote_port");
             my $orign = Mojo::IOLoop->client({address => $remote_addr,
-                                                port => $remote_port} => sub {
+                                                 port => $remote_port,
+                                              timeout => 5*60 } => sub {
                 my ($loop, $err, $stream) = @_;
-                # Inactivity timeout for stream
-                $stream->timeout(5 * 60);
+
+                if($err) {
+                    Mojo::IOLoop->stream($id)->close;
+                    return;
+                }
+
                 $stream->on(read => sub {
                     my ($stream, $chunk) = @_;
                     $log->debug("Read data from orign $id: $chunk");
