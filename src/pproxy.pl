@@ -3,17 +3,23 @@
 use strict;
 use Mojo::IOLoop;
 use Mojo::Log;
+use Mojo::Asset::File;
 use PProxy::IDS;
+use File::Path 'make_path';
+use File::Spec;
+use MIME::QuotedPrint 'encode_qp';
 
 my $conf = do 'pproxy.conf' or die 'Invalid configuration file';
 my $log = Mojo::Log->new(path => $conf->{log}, level => 'info');
 my $rules_dir = $conf->{rules} // 'rules';
 my $proxy = $conf->{proxy};
+my $dump_dir = $conf->{dump_dir} // 'dumps';
 my $connections = {};
 
 my $ids = PProxy::IDS->new($rules_dir);
 
 for my $port (keys %$proxy) {
+    make_path(File::Spec->catfile($dump_dir, $port));
     $log->info("Start listen on $port");
     my $remote_addr = $proxy->{$port}->{address};
     my $remote_port = $proxy->{$port}->{port};
@@ -32,6 +38,9 @@ for my $port (keys %$proxy) {
         });
         $stream->on(read => sub {
             my ($stream, $chunk) = @_;
+            my $chunk_qp = encode_qp $chunk, '';
+            $connections->{$id}->{text_log}->debug("< $chunk_qp");
+            $connections->{$id}->{bin_log}->add_chunk($chunk);
             $log->debug("Read data on $id: $chunk");
             my $ids_action = $ids->process_chunk($chunk);
             $log->debug("Action for this chunk is $ids_action");
@@ -64,6 +73,9 @@ for my $port (keys %$proxy) {
 
             $stream->on(read => sub {
                 my ($stream, $chunk) = @_;
+                my $chunk_qp = encode_qp $chunk, '';
+                $connections->{$id}->{text_log}->debug("> $chunk_qp");
+                $connections->{$id}->{bin_log}->add_chunk($chunk);
                 $log->debug("Read data from orign $id: $chunk");
                 my $ids_action = $ids->process_chunk($chunk);
                 $log->debug("Action for this chunk is $ids_action");
@@ -92,7 +104,11 @@ for my $port (keys %$proxy) {
                     $connections->{$id}->{temp_buffer} = '';
             }
         });
+        my $text_log = Mojo::Log->new(path => File::Spec->catfile($dump_dir, $port, time."_$_$id.txt"));
+        my $bin_log = Mojo::Asset::File->new(path => File::Spec->catfile($dump_dir, $port, time."_$_$id.bin"), cleanup => 0);
         $connections->{$id}->{orign_id} = $orign;
+        $connections->{$id}->{text_log} = $text_log;
+        $connections->{$id}->{bin_log} = $bin_log;
         $log->debug("Starting stream: $id");
     });
 }
