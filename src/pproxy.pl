@@ -16,6 +16,9 @@ my $proxy = $conf->{proxy};
 my $dump_dir = $conf->{dump_dir} // 'dumps';
 my $connections = {};
 
+eval 'use IO::Socket::IP 0.16 (); 1';
+warn 'Install IO::Socket::IP (0.16+) for support IPv6' if $@;
+
 my $ids = PProxy::IDS->new($rules_dir);
 
 for my $port (keys %$proxy) {
