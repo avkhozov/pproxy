@@ -26,7 +26,7 @@ for my $port (keys %$proxy) {
     $log->info("Start listen on $port");
     my $remote_addr = $proxy->{$port}->{address};
     my $remote_port = $proxy->{$port}->{port};
-    my $server = Mojo::IOLoop->server({port => $port} => sub {
+    my $server = Mojo::IOLoop->server({port => $port, address => $proxy->{$port}->{listen} // '0.0.0.0'} => sub {
         my ($loop, $stream, $id) = @_;
         $stream->on(close => sub {
             $log->debug("Closed $id");
