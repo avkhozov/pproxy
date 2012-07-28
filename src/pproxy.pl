@@ -29,21 +29,21 @@ for my $port (keys %$proxy) {
     my $server = Mojo::IOLoop->server({port => $port, address => $proxy->{$port}->{listen} // '0.0.0.0'} => sub {
         my ($loop, $stream, $id) = @_;
         $stream->on(close => sub {
-            $log->debug("Closed $id");
+            $log->warn("Closed $id");
             Mojo::IOLoop->remove($connections->{$id}->{orign_id}) if $connections->{$id}->{orign_id};
             delete $connections->{$id};
         });
         $stream->on(error => sub {
             my ($stream, $error) = @_;
-            $log->debug("Error in $id: $error");
+            $log->warn("Error in $id: $error");
             Mojo::IOLoop->remove($connections->{$id}->{orign_id}) if $connections->{$id}->{orign_id};
             delete $connections->{$id};
         });
         $stream->on(read => sub {
             my ($stream, $chunk) = @_;
             my $chunk_qp = encode_qp $chunk, '';
-            $connections->{$id}->{text_log}->debug("< $chunk_qp");
-            $connections->{$id}->{bin_log}->add_chunk($chunk);
+            $connections->{$id}->{text_log}->debug("< $chunk_qp") if $connections->{$id} && $connections->{$id}->{text_log};
+            $connections->{$id}->{bin_log}->add_chunk($chunk) if $connections->{$id} && $connections->{$id}->{bin_log};
             $log->debug("Read data on $id: $chunk");
             my $ids_action = $ids->process_chunk($chunk);
             $log->debug("Action for this chunk is $ids_action");
@@ -63,11 +63,12 @@ for my $port (keys %$proxy) {
             }
         });
         # Open new connection
-        $log->debug("Connecting to $remote_addr:$remote_port");
+        $log->info("Connecting to $remote_addr:$remote_port");
         my $orign = Mojo::IOLoop->client({address => $remote_addr,
                                             port => $remote_port,
                                             timeout => 5*60 } => sub {
             my ($loop, $err, $stream) = @_;
+            $stream->timeout(0);
 
             if ($err) {
                 $log->warn("Error in $id: $err");
@@ -77,8 +78,8 @@ for my $port (keys %$proxy) {
             $stream->on(read => sub {
                 my ($stream, $chunk) = @_;
                 my $chunk_qp = encode_qp $chunk, '';
-                $connections->{$id}->{text_log}->debug("> $chunk_qp");
-                $connections->{$id}->{bin_log}->add_chunk($chunk);
+                $connections->{$id}->{text_log}->debug("> $chunk_qp") if $connections->{$id} && $connections->{$id}->{text_log};
+                $connections->{$id}->{bin_log}->add_chunk($chunk) if $connections->{$id} && $connections->{$id}->{bin_log};
                 $log->debug("Read data from orign $id: $chunk");
                 my $ids_action = $ids->process_chunk($chunk);
                 $log->debug("Action for this chunk is $ids_action");
@@ -86,33 +87,33 @@ for my $port (keys %$proxy) {
                 Mojo::IOLoop->stream($id)->write($chunk);
             });
             $stream->on(timeout => sub {
-                $log->debug("timeout: orign $id");
+                $log->warn("timeout: orign $id");
                 Mojo::IOLoop->remove($id);
                 delete $connections->{$id};
             });
             $stream->on(error => sub {
                my ($stream, $error) = @_;
-               $log->debug("Error in orign $id while process $remote_addr:$remote_port: $error");
+               $log->warn("Error in orign $id while process $remote_addr:$remote_port: $error");
                Mojo::IOLoop->remove($id);
                delete $connections->{$id};
             });
             $stream->on(close => sub {
-                $log->debug("Closed orign $id");
+                $log->warn("Closed orign $id");
                 Mojo::IOLoop->remove($id);
                 delete $connections->{$id};
             });
-            $log->debug("Connected to $remote_addr:$remote_port");
+            $log->info("Connected to $remote_addr:$remote_port");
             if (length $connections->{$id}->{temp_buffer}) {
                     $stream->write($connections->{$id}->{temp_buffer});
                     $connections->{$id}->{temp_buffer} = '';
             }
         });
-        my $text_log = Mojo::Log->new(path => File::Spec->catfile($dump_dir, $port, time."_$_$id.txt"));
-        my $bin_log = Mojo::Asset::File->new(path => File::Spec->catfile($dump_dir, $port, time."_$_$id.bin"), cleanup => 0);
+        my $text_log = Mojo::Log->new(path => File::Spec->catfile($dump_dir, $port, time."_$id.txt"));
+        my $bin_log = Mojo::Asset::File->new(path => File::Spec->catfile($dump_dir, $port, time."_$id.bin"), cleanup => 0);
         $connections->{$id}->{orign_id} = $orign;
         $connections->{$id}->{text_log} = $text_log;
         $connections->{$id}->{bin_log} = $bin_log;
-        $log->debug("Starting stream: $id");
+        $log->info("Starting stream: $id");
     });
 }
 
